@@ -17,7 +17,7 @@ def home():
 
 def run():
     # ใช้ Port ตามที่ Render กำหนด หรือ 8080 ถ้าไม่มี
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
 
 def keep_alive():
     t = Thread(target=run)
