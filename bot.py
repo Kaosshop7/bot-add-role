@@ -4,22 +4,27 @@ import time
 import psutil
 import asyncio
 import random
+import logging
 from discord import app_commands
 from discord.ext import commands, tasks
 from flask import Flask
 from threading import Thread
 
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "<h1>Bot is Alive!</h1><p>System Status: Online & Safe</p>"
+    return "<h1>Bot is Alive!</h1><p>Running on Render</p>"
 
 def run_http():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
 
 def keep_alive():
     t = Thread(target=run_http)
+    t.daemon = True
     t.start()
 
 TOKEN = os.environ.get('TOKEN')
@@ -67,14 +72,39 @@ bot = MyBot()
 user_last_click = {}
 COOLDOWN_TIME = 3.0 
 
-def get_discord_color(hex_str):
-    try:
-        if hex_str.startswith("#"): return discord.Color.from_str(hex_str)
-        return getattr(discord.Color, hex_str, discord.Color.blue())()
-    except: return discord.Color.default()
+def get_discord_color(color_name):
+    colors = {
+        "red": discord.Color.red(),
+        "blue": discord.Color.blue(),
+        "green": discord.Color.green(),
+        "gold": discord.Color.gold(),
+        "orange": discord.Color.orange(),
+        "purple": discord.Color.purple(),
+        "magenta": discord.Color.magenta(),
+        "teal": discord.Color.teal(),
+        "dark_theme": discord.Color.from_rgb(47, 49, 54),
+        "blurple": discord.Color.blurple(),
+        "grey": discord.Color.light_grey(),
+        "dark_red": discord.Color.dark_red(),
+        "dark_blue": discord.Color.dark_blue(),
+        "dark_green": discord.Color.dark_green(),
+        "dark_orange": discord.Color.dark_orange(),
+        "dark_purple": discord.Color.dark_purple(),
+        "dark_gold": discord.Color.dark_gold(),
+        "black": discord.Color.default(),
+        "white": discord.Color.from_rgb(255, 255, 255),
+        "pink": discord.Color.from_rgb(255, 192, 203),
+        "cyan": discord.Color.from_rgb(0, 255, 255),
+        "lime": discord.Color.from_rgb(50, 205, 50),
+        "yellow": discord.Color.from_rgb(255, 255, 0),
+    }
+    if color_name.startswith("#"):
+        return discord.Color.from_str(color_name)
+    
+    return colors.get(color_name, discord.Color.default())
 
-def create_embed(title, desc, color_hex, img, thumb):
-    embed = discord.Embed(title=title, description=desc.replace("\\n", "\n"), color=get_discord_color(color_hex))
+def create_embed(title, desc, color_input, img, thumb):
+    embed = discord.Embed(title=title, description=desc.replace("\\n", "\n"), color=get_discord_color(color_input))
     if img: embed.set_image(url=img)
     if thumb: embed.set_thumbnail(url=thumb)
     return embed
@@ -90,16 +120,57 @@ async def fetch_message_safe(interaction, message_id):
         await interaction.response.send_message("❌ ไม่พบข้อความ", ephemeral=True)
         return None
 
+
 @bot.tree.command(name="setup_embed", description="สร้าง embed")
 @app_commands.checks.has_permissions(administrator=True)
-async def setup_embed(interaction: discord.Interaction, title: str, description: str, color_hex: str = "#3498db", image_url: str = None, thumbnail_url: str = None):
-    embed = create_embed(title, description, color_hex, image_url, thumbnail_url)
+@app_commands.choices(color_select=[
+    app_commands.Choice(name="🔴 Red", value="red"),
+    app_commands.Choice(name="🔵 Blue", value="blue"),
+    app_commands.Choice(name="🟢 Green", value="green"),
+    app_commands.Choice(name="🟡 Gold", value="gold"),
+    app_commands.Choice(name="🟠 Orange", value="orange"),
+    app_commands.Choice(name="🟣 Purple", value="purple"),
+    app_commands.Choice(name="🌸 Pink", value="pink"),
+    app_commands.Choice(name="⚫ Dark Theme (เนียนไปกับพื้นหลัง)", value="dark_theme"),
+    app_commands.Choice(name="⚪ White", value="white"),
+    app_commands.Choice(name="🌑 Black", value="black"),
+    app_commands.Choice(name="🌊 Teal", value="teal"),
+    app_commands.Choice(name="🔮 Magenta", value="magenta"),
+    app_commands.Choice(name="🎮 Blurple (สีดิสคอร์ด)", value="blurple"),
+    app_commands.Choice(name="🌫️ Grey", value="grey"),
+    app_commands.Choice(name="🧪 Lime", value="lime"),
+    app_commands.Choice(name="💎 Cyan", value="cyan"),
+    app_commands.Choice(name="🩸 Dark Red", value="dark_red"),
+    app_commands.Choice(name="🌌 Dark Blue", value="dark_blue"),
+    app_commands.Choice(name="🌲 Dark Green", value="dark_green"),
+    app_commands.Choice(name="🎃 Dark Orange", value="dark_orange"),
+    app_commands.Choice(name="🍆 Dark Purple", value="dark_purple"),
+])
+async def setup_embed(
+    interaction: discord.Interaction, 
+    title: str, 
+    description: str, 
+    color_select: str = "blurple",
+    custom_hex: str = None,
+    image_url: str = None, 
+    thumbnail_url: str = None
+):
+    
+    final_color = custom_hex if custom_hex else color_select
+    
+    embed = create_embed(title, description, final_color, image_url, thumbnail_url)
     embed.set_footer(text=f"Setup by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
     await interaction.response.send_message("✅ สร้าง Embed เรียบร้อย", ephemeral=True)
     await interaction.channel.send(embed=embed)
 
 @bot.tree.command(name="add_button", description="เพิ่มปุ่มรับยศ")
 @app_commands.checks.has_permissions(administrator=True)
+@app_commands.choices(color=[
+    app_commands.Choice(name="Blurple (สีม่วงฟ้า)", value="blurple"),
+    app_commands.Choice(name="Green (สีเขียว)", value="green"),
+    app_commands.Choice(name="Red (สีแดง)", value="red"),
+    app_commands.Choice(name="Grey (สีเทา)", value="grey"),
+])
 async def add_button(interaction: discord.Interaction, message_id: str, role: discord.Role, label: str, color: str = "blurple", emoji: str = None):
     msg = await fetch_message_safe(interaction, message_id)
     if not msg: return
@@ -135,10 +206,10 @@ async def ping(interaction: discord.Interaction):
 
 @bot.tree.command(name="help", description="คู่มือ")
 async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(title="คู่มือการเซ็ตบอทตัวนี้", color=discord.Color.gold())
+    embed = discord.Embed(title="คู่มือการเซ็ตบอท", color=discord.Color.gold())
     embed.add_field(name="ทั่วไป", value="`/ping`, `/help`", inline=False)
     if interaction.user.guild_permissions.administrator:
-        embed.add_field(name="แอดมิน", value="`/setup_embed`, `/add_button`, `/remove_button`", inline=False)
+        embed.add_field(name="แอดมิน", value="`/setup_embed` - สร้างข้อความ (เลือกสีได้)\n`/add_button` - เพิ่มปุ่มแจกยศ\n`/remove_button` - ลบปุ่ม", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.event
@@ -163,7 +234,7 @@ async def on_interaction(interaction: discord.Interaction):
             user = interaction.user
             
             if not role:
-                await interaction.response.send_message("❌ ไม่พบยศนี้", ephemeral=True)
+                await interaction.response.send_message("❌ ไม่พบยศนี้ (อาจถูกลบไปแล้ว)", ephemeral=True)
                 return
 
             if role in user.roles:
@@ -174,14 +245,14 @@ async def on_interaction(interaction: discord.Interaction):
                 await interaction.response.send_message(f"➕ รับบทบาท **{role.name}** เรียบร้อย", ephemeral=True)
 
         except discord.errors.Forbidden:
-            await interaction.response.send_message("❌ บอทไม่มีสิทธิ์แจกยศนี้ (เอายศบอทไว้สูงกว่านี้)", ephemeral=True)
+            await interaction.response.send_message("❌ บอทไม่มีสิทธิ์แจกยศนี้ (โปรดลากยศบอทไว้สูงกว่ายศที่จะแจก)", ephemeral=True)
         except Exception as e:
             print(f"Error: {e}")
             await interaction.response.send_message("❌ เกิดข้อผิดพลาด", ephemeral=True)
 
 def run_bot_safe():
     if not TOKEN:
-        print("❌ Error: ไม่พบ TOKEN")
+        print("❌ Error: ไม่พบ TOKEN ใน Environment Variables")
         return
 
     retry_count = 0
